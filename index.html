@@ -1,101 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>ShapeDiver Table</title>
+  <meta charset="UTF-8">
+  <title>ShapeDiver Live Table</title>
   <style>
-    #viewer {
-      width: 100%;
-      height: 400px;
-    }
-
-    #table-container {
-      max-height: 300px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      margin-top: 20px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 8px;
-      border: 1px solid #ddd;
-    }
-
-    thead {
-      position: sticky;
-      top: 0;
-      background: white;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #viewer-container { width: 100%; height: 500px; border: 1px solid #ccc; }
+    #table-container { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border: 1px solid #ddd; }
+    thead { position: sticky; top: 0; background: white; }
   </style>
 </head>
 <body>
 
-<div id="viewer"></div>
+<h2>ShapeDiver Viewer</h2>
+<div id="viewer-container">
+  <iframe
+    id="sdViewer"
+    src="https://sdr8euc1.eu-central-1.shapediver.com"
+    width="100%"
+    height="100%"
+    frameborder="0"
+  ></iframe>
+</div>
 
+<h2>Live Model Data Table</h2>
 <div id="table-container">
   <table id="data-table"></table>
 </div>
 
-<script type="module">
-import { createSession } from "https://viewer.shapediver.com/v3/1.30.1.0/bundle.js";
+<script>
+  // Function to build table dynamically
+  function buildTable(data) {
+    const table = document.getElementById("data-table");
+    table.innerHTML = "";
 
-const session = await createSession({
-  ticket: "d0d8ddd7bba308b557a74edc0776e08c06b5c8ab06a7254edb3fb68be6b363c43115a9e5b00a85a21cdb2c329b701f84b69af55b03f46584ffebc5bc9e6bfe4d46778e31e046b5b24bfb1d3c5f2a31ae4b8607a4f9813ed4ea0c64ec282009b0d65a6d01ae3238-daf8f4fa948ccbaafdce46161c07bbfd",
-  modelViewUrl: "https://sdr8euc1.eu-central-1.shapediver.com"
-});
+    if (!data.length) return;
 
-function buildTable(data) {
-  const table = document.getElementById("data-table");
-  table.innerHTML = "";
-
-  if (!data.length) return;
-
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-
-  Object.keys(data[0]).forEach(key => {
-    const th = document.createElement("th");
-    th.textContent = key;
-    headerRow.appendChild(th);
-  });
-
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-
-  data.forEach(row => {
-    const tr = document.createElement("tr");
-
-    Object.values(row).forEach(value => {
-      const td = document.createElement("td");
-      td.textContent = value;
-      tr.appendChild(td);
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    Object.keys(data[0]).forEach(key => {
+      const th = document.createElement("th");
+      th.textContent = key;
+      headerRow.appendChild(th);
     });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
 
-    tbody.appendChild(tr);
+    const tbody = document.createElement("tbody");
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+      Object.values(row).forEach(value => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  }
+
+  // Listen for messages from ShapeDiver iframe
+  window.addEventListener("message", (event) => {
+    // Make sure the message comes from your ShapeDiver domain
+    if (!event.origin.includes("shapediver.com")) return;
+
+    const message = event.data;
+
+    // ShapeDiver sends output data in a "viewerOutputs" message
+    if (message.type === "viewerOutputs" && message.outputs) {
+      // For simplicity, take the first output
+      const firstOutput = Object.values(message.outputs)[0];
+      if (!firstOutput || !firstOutput.content || !firstOutput.content[0]) return;
+
+      try {
+        const jsonData = JSON.parse(firstOutput.content[0].data);
+        buildTable(jsonData);
+      } catch (err) {
+        console.error("Failed to parse JSON from ShapeDiver output", err);
+      }
+    }
   });
-
-  table.appendChild(tbody);
-}
-
-function updateTable() {
-  const output = Object.values(session.outputs)[0];
-  const jsonString = output.content[0].data;
-  const tableData = JSON.parse(jsonString);
-  buildTable(tableData);
-}
-
-session.addEventListener("customizeEnd", updateTable);
-
-updateTable();
 </script>
 
 </body>
 </html>
-
